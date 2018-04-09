@@ -179,18 +179,29 @@ public class LargeListener : MonoBehaviour {
         MeshFilter mf = model.GetComponent<MeshFilter>();
         Mesh m = mf.mesh;
 
-        List<float[]> verts = new List<float[]>();
-        foreach(Vector3 vert in m.vertices)
+        float[] verts = new float[m.vertices.Length * 3];
+        for (int i = 0; i < m.vertices.Length; i ++)
         {
-            float[] f = { vert.x, vert.y, vert.z };
-            verts.Add(f);
+            Vector3 vert = m.vertices[i];
+            float fx = vert.x;
+            verts[i] = (fx);
+
+            float fy= vert.y;
+            verts[i] = (fx);
+
+            float fz = vert.z;
+            verts[i] = (fx);
         }
 
-        List<float[]> uvs = new List<float[]>();
-        foreach (Vector2 uv in m.uv)
+        float[] uvs = new float[m.uv.Length * 2];
+        for (int i = 0; i < m.uv.Length; i++)
         {
-            float[] f = { uv.x, uv.y };
-            uvs.Add(f);
+            Vector2 uv = m.uv[i];
+            float fx = uv.x;
+            uvs[i] = (fx);
+
+            float fy = uv.y;
+            uvs[i] = (fx);
         }
 
         int[] triangles = m.triangles;
@@ -211,15 +222,15 @@ public class LargeListener : MonoBehaviour {
 public class WireData
 {
     [SerializeField]
-    List<float[]> verts;
+    float[] verts;
 
     [SerializeField]
-    List<float[]> uvs;
+    float[] uvs;
 
     [SerializeField]
     int[] triangles;
 
-    public WireData(List<float[]> verts, List<float[]> uvs, int[] triangles)
+    public WireData(float[] verts,float[] uvs, int[] triangles)
     {
         this.verts = verts;
         this.uvs = uvs;
