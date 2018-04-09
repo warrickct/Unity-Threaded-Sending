@@ -65,7 +65,8 @@ public class LargeListener : MonoBehaviour {
                 //SendSocketMessage("Hello server");
                 break;
             case NetworkEventType.DataEvent:
-                DecodeMessage(recBuffer, dataSize);
+                //DecodeMessage(recBuffer, dataSize);
+                DecodeModel(recBuffer, dataSize);
                 //Stream stream = new MemoryStream(recBuffer);
                 //BinaryFormatter formatter = new BinaryFormatter();
                 //string message = formatter.Deserialize(stream) as string;
@@ -156,14 +157,18 @@ public class LargeListener : MonoBehaviour {
         }
     }
 
+    List<byte> recBytes = new List<byte>();
     void DecodeModel(byte[] recBuffer, int bufferSize)
     {
+        receiveStream.Write(recBuffer, 0, recBuffer.Length);
+
         if (bufferSize < 1024)
         {
-            byte[] fullData = receiveStream.ToArray();
-
+            //byte[] fullData = receiveStream.ToArray();
+            byte[] b = recBytes.ToArray();
+            MemoryStream ms = new MemoryStream(b);
             BinaryFormatter bf = new BinaryFormatter();
-            WireData wd = bf.Deserialize(receiveStream) as WireData;
+            WireData wd = bf.Deserialize(ms) as WireData;
 
             Debug.Log("created model");
         }
