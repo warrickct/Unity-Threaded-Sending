@@ -36,12 +36,16 @@ public class ThreadNet : MonoBehaviour {
     void Start () {
 
         Mesh mesh = model.GetComponent<MeshFilter>().mesh;
+        Vector4[] tangents = mesh.tangents;
         Vector3[] vertices = mesh.vertices;
+        Vector3[] normals = mesh.normals;
         Vector2[] uv = mesh.uv;
         int[] triangles = mesh.triangles;
+        
+        //get tangets normals and bounds as well.
 
         byte[] data;
-        Thread newThread = new Thread(() => SerializeModel(vertices, uv, triangles));
+        Thread newThread = new Thread(() => SerializeModel(tangents, vertices, normals, uv, triangles));
         newThread.IsBackground = true;
         newThread.Start();
 
@@ -56,14 +60,31 @@ public class ThreadNet : MonoBehaviour {
     /// <param name="verts"></param>
     /// <param name="uvs"></param>
     /// <param name="triangles"></param>
-    void SerializeModel(Vector3[] verts, Vector2[] uvs, int[] triangles)
+    void SerializeModel(Vector4[] tangents, Vector3[] verts, Vector3[] normals, Vector2[] uvs, int[] triangles)
     {
+        List<float> tangentFloats = new List<float>();
+        foreach (Vector4 tangent in tangents)
+        {
+            tangentFloats.Add(tangent.w);
+            tangentFloats.Add(tangent.x);
+            tangentFloats.Add(tangent.y);
+            tangentFloats.Add(tangent.z);
+        }
+
         List<float> vertFloats = new List<float>();
         foreach( Vector3 vert in verts)
         {
             vertFloats.Add(vert.x);
             vertFloats.Add(vert.y);
             vertFloats.Add(vert.z);
+        }
+
+        List<float> normalFloats = new List<float>();
+        foreach (Vector3 normal in normals)
+        {
+            normalFloats.Add(normal.x);
+            normalFloats.Add(normal.y);
+            normalFloats.Add(normal.z);
         }
 
         List<float> uvFloats = new List<float>();
@@ -73,12 +94,14 @@ public class ThreadNet : MonoBehaviour {
             uvFloats.Add(uv.y);
         }
 
+        float[] tangentFloatArray = tangentFloats.ToArray();
         float[] vertFloatArray = vertFloats.ToArray();
+        float[] normalFloatArray = normalFloats.ToArray();
         float[] uvFloatArray = uvFloats.ToArray();
 
         Debug.Log("Completed array conversion: " + vertFloatArray.Length + " " + uvFloatArray.Length);
 
-        WireData2 wd2 = new WireData2(vertFloatArray, uvFloatArray, triangles);
+        WireData2 wd2 = new WireData2(tangentFloatArray, vertFloatArray, normalFloatArray, uvFloatArray, triangles);
 
         MemoryStream ms = new MemoryStream();
         BinaryFormatter bf = new BinaryFormatter();
@@ -178,6 +201,25 @@ public class ThreadNet : MonoBehaviour {
     {
         isConstructing = true;
 
+        //tangents
+        float[] tangents = wd2.tangents;
+        List<Vector4> vecTangents = new List<Vector4>();
+        for (int i = 0; i < tangents.Length; i += 4)
+        {
+            Vector3 tangent = new Vector4(tangents[i], tangents[i + 1], tangents[i + 2], tangents[i + 3]);
+            vecTangents.Add(tangent);
+        }
+
+        //normals
+        float[] normals = wd2.normals;
+        List<Vector3> vecNormals = new List<Vector3>();
+        for (int i = 0; i < normals.Length; i += 3)
+        {
+            Vector3 normal = new Vector3(normals[i], normals[i + 1], normals[i + 2]);
+            vecNormals.Add(normal);
+        }
+
+        //vertices
         float[] verts = wd2.verts;
         List<Vector3> vectorVertices = new List<Vector3>();
         for (int i=0; i < verts.Length; i+=3)
@@ -186,6 +228,7 @@ public class ThreadNet : MonoBehaviour {
             vectorVertices.Add(vertex);
         }
 
+        //uv
         float[] uvs = wd2.uvs;
         List<Vector2> vectorUvs = new List<Vector2>();
         for (int i=0; i < uvs.Length; i+=2 )
@@ -196,12 +239,14 @@ public class ThreadNet : MonoBehaviour {
 
         //dont need to do anything for triangles.
 
+        Vector4[] vecTangentArray = vecTangents.ToArray();
         Vector3[] vecVertArray = vectorVertices.ToArray();
+        Vector3[] vecNormalArray = vecNormals.ToArray();
         Vector2[] vecUvsArray = vectorUvs.ToArray();
         int[] intTrianglesArray = wd2.triangles;
 
         //cast to meshdata object for easier return.
-        MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray);
+        MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray, vecNormalArray, vecTangentArray);
         return meshData;
     }
 
@@ -217,11 +262,11 @@ public class ThreadNet : MonoBehaviour {
             vertices = meshData.vertices,
             uv = meshData.uv,
             triangles = meshData.triangles,
+            tangents = meshData.tangents,
+            normals = meshData.normals,
         };
 
-        genMesh.RecalculateNormals();
         genMesh.RecalculateBounds();
-        genMesh.RecalculateTangents();
 
         genModel.AddComponent<MeshFilter>();
         genModel.GetComponent<MeshFilter>().mesh = genMesh;
@@ -246,15 +291,19 @@ public class ThreadNet : MonoBehaviour {
 
 public struct MeshData
 {
+    public Vector4[] tangents;
     public Vector3[] vertices;
+    public Vector3[] normals;
     public Vector2[] uv;
     public int[] triangles;
 
-    public MeshData(int[] triangles, Vector2[] uv, Vector3[] vertices)
+    public MeshData(int[] triangles, Vector2[] uv, Vector3[] vertices, Vector3[] normals, Vector4[] tangents)
     {
+        this.tangents = tangents;
         this.triangles = triangles;
         this.uv = uv;
         this.vertices = vertices;
+        this.normals = normals;
     }
 }
 
@@ -262,14 +311,16 @@ public struct MeshData
 public class WireData2
 {
     [SerializeField]
-    public float[] verts, uvs;
+    public float[] tangents, verts, normals, uvs;
 
     [SerializeField]
     public int[] triangles;
 
-    public WireData2(float[] verts, float[] uvs, int[] triangles)
+    public WireData2(float[] tangents, float[] verts, float[] normals, float[] uvs, int[] triangles)
     {
+        this.tangents = tangents;
         this.verts = verts;
+        this.normals = normals;
         this.uvs = uvs;
         this.triangles = triangles;
     }
