@@ -195,7 +195,11 @@ public class ThreadNet : MonoBehaviour {
 
     void GenerateModel(int[] triangles, Vector2[] uvs, Vector3[] vertices)
     {
-        GameObject genModel = new GameObject();
+        GameObject genModel = new GameObject
+        {
+            name = "GeneratedModel"
+        };
+
         Mesh genMesh = new Mesh
         {
             vertices = vertices,
@@ -218,19 +222,9 @@ public class ThreadNet : MonoBehaviour {
 
     private void Update()
     {
-        //Debugging 
-        if (debugData != null)
-        {
-            Debug.Log(debugData);
-        }
-
-        if (debugData2 != null)
-        {
-            Debug.Log(debugData2);
-        }
-
         if (wd2 != null && !isConstructing)
         {
+            Debug.Log("wd2 not null");
             //Getting same uv and triangles.
             Debug.Log(wd2.verts.Length);
             Debug.Log("final wd2 uv " + wd2.uvs[wd2.uvs.Length - 1]);
@@ -256,8 +250,8 @@ public class ThreadNet : MonoBehaviour {
             GenerateModel(receivedTriangles, receivedUvs, receivedVerts);
         }
 
-        //Debugging 
-        Debug.Log(connected);
+        //Debugging
+        Debug.Log("connected: " + connected);
     }
 }
 
