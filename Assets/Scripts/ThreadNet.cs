@@ -41,7 +41,16 @@ public class ThreadNet : MonoBehaviour {
         Vector3[] normals = mesh.normals;
         Vector2[] uv = mesh.uv;
         int[] triangles = mesh.triangles;
-        
+
+        Debug.Log("tangents length in as floats before sending" + tangents.Length * 4);
+
+        Debug.Log("model firsts - lasts:");
+        Debug.Log("tangent:" + tangents[0] + tangents[tangents.Length-1]);
+        Debug.Log("vertex:" + vertices[0] + vertices[vertices.Length-1]);
+        Debug.Log("normal:" + normals[0] + normals[normals.Length -1]);
+        Debug.Log("uv:" + uv[0] + uv[uv.Length -1]);
+        Debug.Log("triangle:" + triangles[0] + triangles[triangles.Length -1]);
+
         //get tangets normals and bounds as well.
 
         byte[] data;
@@ -201,12 +210,14 @@ public class ThreadNet : MonoBehaviour {
     {
         isConstructing = true;
 
+        Debug.Log("received tangets length" + wd2.tangents.Length);
+
         //tangents
         float[] tangents = wd2.tangents;
         List<Vector4> vecTangents = new List<Vector4>();
         for (int i = 0; i < tangents.Length; i += 4)
         {
-            Vector3 tangent = new Vector4(tangents[i], tangents[i + 1], tangents[i + 2], tangents[i + 3]);
+            Vector4 tangent = new Vector4(tangents[i], tangents[i + 1], tangents[i + 2], tangents[i + 3]);
             vecTangents.Add(tangent);
         }
 
@@ -246,6 +257,14 @@ public class ThreadNet : MonoBehaviour {
         int[] intTrianglesArray = wd2.triangles;
 
         //cast to meshdata object for easier return.
+
+        Debug.Log("Generated meshdata firsts + lasts");
+        Debug.Log("tangent" + vecTangentArray[vecTangentArray.Length -1]);
+        Debug.Log("verts" + vecVertArray[vecVertArray.Length -1]);
+        Debug.Log("normals" + vecNormalArray[vecNormalArray.Length -1]);
+        Debug.Log("uvs" + vecUvsArray[vecUvsArray.Length -1]);
+        Debug.Log("triangles " + intTrianglesArray[intTrianglesArray.Length-1]);
+
         MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray, vecNormalArray, vecTangentArray);
         return meshData;
     }
