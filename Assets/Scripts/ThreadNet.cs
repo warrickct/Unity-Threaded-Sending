@@ -24,7 +24,11 @@ public class ThreadNet : MonoBehaviour {
 
     MeshData meshData = new MeshData();
 
-    bool meshConstructionRunning = false;
+    bool isConstructing = false;
+
+    Vector3[] receivedVerts;
+    Vector2[] receivedUvs;
+    int[] receivedTriangles;
 
     // Use this for initialization
     void Start () {
@@ -63,12 +67,12 @@ public class ThreadNet : MonoBehaviour {
         List<float> uvFloats = new List<float>();
         foreach (Vector2 uv in uvs)
         {
-            vertFloats.Add(uv.x);
-            vertFloats.Add(uv.y);
+            uvFloats.Add(uv.x);
+            uvFloats.Add(uv.y);
         }
 
         float[] vertFloatArray = vertFloats.ToArray();
-        float[] uvFloatArray = vertFloats.ToArray();
+        float[] uvFloatArray = uvFloats.ToArray();
 
         Debug.Log("Completed array conversion: " + vertFloatArray.Length + " " + uvFloatArray.Length);
 
@@ -101,15 +105,20 @@ public class ThreadNet : MonoBehaviour {
         client.Connect(ipEndPoint);
         Debug.Log("connected");
 
-        /*
+        /**
+         * This is the test string sent over network.
         client.SendFile("test.txt");
         Debug.Log("Sent");
         client.Shutdown(SocketShutdown.Send);
+        
+        string message = "sending this message";
+        byte[] messageBytes = Encoding.ASCII.GetBytes(message);
         */
 
-        //string message = "sending this message";
-        //byte[] messageBytes = Encoding.ASCII.GetBytes(message);
+        int dataLength = data.Length;
+        byte[] sizeData = BitConverter.GetBytes(dataLength);
 
+        //client.Send(sizeData);
         client.Send(data);
         client.Close();
     }
@@ -121,7 +130,7 @@ public class ThreadNet : MonoBehaviour {
 
         tcpListener.Start();
 
-        byte[] bytes = new byte[256];
+        byte[] bytes = new byte[1024];
         String data = null;
 
         while (true)
@@ -153,50 +162,58 @@ public class ThreadNet : MonoBehaviour {
         }
     }
 
-    private void ReconstructMeshArrays(WireData2 wd2)
+    void ReconstructMeshArrays(WireData2 wd2)
     {
-        meshConstructionRunning = true;
-        for (int i=0; i < wd2.verts.Length; i+=3)
-        {
-            float[] verts = wd2.verts;
-            float x = verts[i];
-            float y = verts[i+1];
-            float z = verts[i+2];
+        isConstructing = true;
 
-            meshData.AddVert(x, y, z);
+        float[] verts = wd2.verts;
+        List<Vector3> vectorVertices = new List<Vector3>();
+        for (int i=0; i < verts.Length; i+=3)
+        {
+            Vector3 vertex = new Vector3( verts[i], verts[i+1], verts[i+2] );
+            vectorVertices.Add(vertex);
         }
 
-        for (int i = 0; i < wd2.uvs.Length; i += 2)
+        float[] uvs = wd2.uvs;
+        List<Vector2> vectorUvs = new List<Vector2>();
+        for (int i=0; i < uvs.Length; i+=2 )
         {
-            float[] uvs = wd2.verts;
-            float x = uvs[i];
-            float y = uvs[i + 1];
-
-            meshData.AddUv(x, y);
+            Vector2 uv = new Vector2(uvs[i], uvs[i + 1]);
+            vectorUvs.Add(uv);
         }
 
-        meshData.SetTriangles(wd2.triangles);
+        //dont need to do anything for triangles.
+
+        receivedVerts = vectorVertices.ToArray();
+        receivedUvs = vectorUvs.ToArray();
+        receivedTriangles = wd2.triangles;
 
         //stops it from playing again after running once as well as during running.
         wd2 = null;
-        meshConstructionRunning = false;
+        isConstructing = false;
     }
 
-    void GenerateModel()
+    void GenerateModel(int[] triangles, Vector2[] uvs, Vector3[] vertices)
     {
         GameObject genModel = new GameObject();
         Mesh genMesh = new Mesh
         {
-            vertices = meshData.vertices.ToArray(),
-            uv = meshData.uv.ToArray(),
-            triangles = meshData.triangles
+            vertices = vertices,
+            uv = uvs,
+            triangles = triangles,
         };
 
         genMesh.RecalculateNormals();
         genMesh.RecalculateBounds();
         genMesh.RecalculateTangents();
 
-        genModel.GetComponent<MeshFilter>().sharedMesh = genMesh;
+        genModel.AddComponent<MeshFilter>();
+        genModel.GetComponent<MeshFilter>().mesh = genMesh;
+
+        MeshRenderer generatedRenderer = genModel.AddComponent<MeshRenderer>();
+
+        Material genMaterial = generatedRenderer.material = new Material(Shader.Find("Standard"));
+        genMaterial.name = "GeneratedMaterial";
     }
 
     private void Update()
@@ -212,22 +229,31 @@ public class ThreadNet : MonoBehaviour {
             Debug.Log(debugData2);
         }
 
-        if (wd2 != null)
+        if (wd2 != null && !isConstructing)
         {
-            Debug.Log("wd2 not null");
-            int lastIndex = wd2.verts.Length -1;
-            Debug.Log("wd2 first vert: " + wd2.verts[0] + " " + wd2.verts[1] + " " + wd2.verts[2]);
-            Debug.Log("wd2 last vert: " + wd2.verts[lastIndex-2] + " " + wd2.verts[lastIndex-1] + " " + wd2.verts[lastIndex]);
+            //Getting same uv and triangles.
+            Debug.Log(wd2.verts.Length);
+            Debug.Log("final wd2 uv " + wd2.uvs[wd2.uvs.Length - 1]);
+            Debug.Log("final wd2 vert " + wd2.verts[wd2.verts.Length - 1]);
 
-            Vector3 modelFirstVert = model.GetComponent<MeshFilter>().mesh.vertices[0];
-            int modelLastIndex = model.GetComponent<MeshFilter>().mesh.vertices.Length - 1;
-            Vector3 modelLastVert = model.GetComponent<MeshFilter>().mesh.vertices[modelLastIndex];
+            //model outputs
+            //Getting same uv and triangles.
+            Mesh mesh = model.GetComponent<MeshFilter>().mesh;
+            Debug.Log("model final uv " + mesh.uv[mesh.uv.Length-1].y);
+            Debug.Log("model final vert " + mesh.vertices[mesh.vertices.Length - 1]);
 
-            Debug.Log("model first and last verts " + modelFirstVert.ToString() + " " + modelLastVert.ToString());
+            Thread reconstructMeshThread = new Thread(()=> ReconstructMeshArrays(wd2));
+            reconstructMeshThread.IsBackground = true;
+            reconstructMeshThread.Start();
         }
         else
         {
             Debug.Log("wd2 null");
+        }
+
+        if (receivedTriangles!=null && receivedUvs!=null && receivedVerts !=null)
+        {
+            GenerateModel(receivedTriangles, receivedUvs, receivedVerts);
         }
 
         //Debugging 
