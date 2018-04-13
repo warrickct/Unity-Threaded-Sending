@@ -14,21 +14,23 @@ public class ThreadNet : MonoBehaviour {
     public GameObject model;
 
     //Debugging 
-    string debugData = null;
-    string debugData2 = null;
-
-    //Debugging 
     bool connected = false;
 
     WireData2 wd2 = null;
 
-    MeshData meshData = new MeshData();
-
     bool isConstructing = false;
+    bool meshArrayConstructionDone = false;
 
     Vector3[] receivedVerts;
     Vector2[] receivedUvs;
     int[] receivedTriangles;
+
+    //Made to handle when to instantiate game obj (as it can only be done from update/start.
+    bool hasMesh = false;
+    MeshData meshData;
+
+    //made to prevent the repeat calls to generate the model.
+    bool isGenerated = false;
 
     // Use this for initialization
     void Start () {
@@ -152,17 +154,27 @@ public class ThreadNet : MonoBehaviour {
                 fullData.AddRange(bytes);
                 data = Encoding.ASCII.GetString(bytes, 0, i);
                 data.ToUpper();
-                debugData = "received " + data;
-                debugData2 = "fullData length " + fullData.Count;
+                Debug.Log("receiving");
             }
             byte[] fullDataBytes = fullData.ToArray();
             BinaryFormatter bf = new BinaryFormatter();
             MemoryStream ms = new MemoryStream(fullDataBytes);
             wd2 = bf.Deserialize(ms) as WireData2;
+
+            HandleWireData(wd2);
         }
     }
 
-    void ReconstructMeshArrays(WireData2 wd2)
+    /// <summary>
+    /// Parent function for running wiredata handling and conversion into model.
+    /// </summary>
+    /// <param name="wd"></param>
+    void HandleWireData(WireData2 wd)
+    {
+        meshData = ReconstructMeshArrays(wd);
+    }
+
+    MeshData ReconstructMeshArrays(WireData2 wd2)
     {
         isConstructing = true;
 
@@ -184,16 +196,16 @@ public class ThreadNet : MonoBehaviour {
 
         //dont need to do anything for triangles.
 
-        receivedVerts = vectorVertices.ToArray();
-        receivedUvs = vectorUvs.ToArray();
-        receivedTriangles = wd2.triangles;
+        Vector3[] vecVertArray = vectorVertices.ToArray();
+        Vector2[] vecUvsArray = vectorUvs.ToArray();
+        int[] intTrianglesArray = wd2.triangles;
 
-        //stops it from playing again after running once as well as during running.
-        wd2 = null;
-        isConstructing = false;
+        //cast to meshdata object for easier return.
+        MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray);
+        return meshData;
     }
 
-    void GenerateModel(int[] triangles, Vector2[] uvs, Vector3[] vertices)
+    void GenerateModel(MeshData meshData)
     {
         GameObject genModel = new GameObject
         {
@@ -202,9 +214,9 @@ public class ThreadNet : MonoBehaviour {
 
         Mesh genMesh = new Mesh
         {
-            vertices = vertices,
-            uv = uvs,
-            triangles = triangles,
+            vertices = meshData.vertices,
+            uv = meshData.uv,
+            triangles = meshData.triangles,
         };
 
         genMesh.RecalculateNormals();
@@ -218,63 +230,31 @@ public class ThreadNet : MonoBehaviour {
 
         Material genMaterial = generatedRenderer.material = new Material(Shader.Find("Standard"));
         genMaterial.name = "GeneratedMaterial";
+
+        isGenerated = true;
     }
 
     private void Update()
     {
-        if (wd2 != null && !isConstructing)
+        if (meshData.triangles != null && isGenerated == false)
         {
-            Debug.Log("wd2 not null");
-            //Getting same uv and triangles.
-            Debug.Log(wd2.verts.Length);
-            Debug.Log("final wd2 uv " + wd2.uvs[wd2.uvs.Length - 1]);
-            Debug.Log("final wd2 vert " + wd2.verts[wd2.verts.Length - 1]);
-
-            //model outputs
-            //Getting same uv and triangles.
-            Mesh mesh = model.GetComponent<MeshFilter>().mesh;
-            Debug.Log("model final uv " + mesh.uv[mesh.uv.Length-1].y);
-            Debug.Log("model final vert " + mesh.vertices[mesh.vertices.Length - 1]);
-
-            Thread reconstructMeshThread = new Thread(()=> ReconstructMeshArrays(wd2));
-            reconstructMeshThread.IsBackground = true;
-            reconstructMeshThread.Start();
+            GenerateModel(meshData);
         }
-        else
-        {
-            Debug.Log("wd2 null");
-        }
-
-        if (receivedTriangles!=null && receivedUvs!=null && receivedVerts !=null)
-        {
-            GenerateModel(receivedTriangles, receivedUvs, receivedVerts);
-        }
-
-        //Debugging
-        Debug.Log("connected: " + connected);
     }
+
 }
 
 public struct MeshData
 {
-    public List<Vector3> vertices;
-    public List<Vector2> uv;
+    public Vector3[] vertices;
+    public Vector2[] uv;
     public int[] triangles;
 
-    public void AddVert(float x, float y, float z)
-    {
-        Vector3 vert = new Vector3(x, y, z);
-        vertices.Add(vert);
-    }
-
-    public void AddUv(float x, float y)
-    {
-        Vector2 uv = new Vector2(x, y);
-    }
-
-    public void SetTriangles(int[] triangles)
+    public MeshData(int[] triangles, Vector2[] uv, Vector3[] vertices)
     {
         this.triangles = triangles;
+        this.uv = uv;
+        this.vertices = vertices;
     }
 }
 
