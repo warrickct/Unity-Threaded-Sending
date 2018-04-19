@@ -385,23 +385,31 @@ public class ThreadNet : MonoBehaviour {
         
         if (meshData.vertices.Length > 65000) {
 
-            List<Vector3> verticesList = new List<Vector3>();
-            List<Vector3> normalsList = new List<Vector3>();
-            for (int i =0; verticesList.Count < 6000; i++)
+            //find out how many submeshes
+            int loops = 0;
+            for (int j = meshData.vertices.Length; j < 60000; j /= 3)
             {
-                //verticesList.Add(meshData.vertices[meshData.triangles[i]]);
-                //normalsList.Add(meshData.normals[meshData.triangles[i]]);
-                Debug.Log(meshData.triangles[i]);
+                loops++;
             }
 
-            int[] subTriangles = meshData.triangles.Take(6000).ToArray();
+            Debug.Log("need to do loops: " + loops);
+
+            List<Vector3> verticesList = new List<Vector3>();
+            List<Vector3> normalsList = new List<Vector3>();
+            List<int> trianglesList = new List<int>();
+            for (int i =0; verticesList.Count < 60000; i++)
+            {
+                verticesList.Add(meshData.vertices[meshData.triangles[i]]);
+                normalsList.Add(meshData.normals[meshData.triangles[i]]);
+                trianglesList.Add(i);
+            }
 
             //re-assign meshData as a different one:
             meshData = new MeshData
             {
                 vertices = verticesList.ToArray(),
                 normals = normalsList.ToArray(),
-                triangles = subTriangles,
+                triangles = trianglesList.ToArray(),
             };
             Debug.Log("Submodel verts: " + meshData.vertices.Length);
         }
