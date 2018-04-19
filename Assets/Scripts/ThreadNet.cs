@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Threading;
 using System;
+using System.Linq;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Net.Sockets;
@@ -25,6 +26,13 @@ public class ThreadNet : MonoBehaviour {
     Vector2[] receivedUvs;
     int[] receivedTriangles;
 
+    //testing for incorrect data send.
+    Vector4[] localTangents;
+    Vector3[] localVerts;
+    Vector3[] localNormals;
+    Vector2[] localUv;
+    int[] localTriangles;
+
     //Made to handle when to instantiate game obj (as it can only be done from update/start.
     bool hasMesh = false;
     MeshData meshData;
@@ -42,6 +50,80 @@ public class ThreadNet : MonoBehaviour {
         Vector2[] uv = mesh.uv;
         int[] triangles = mesh.triangles;
 
+        Debug.Log("number of verts for model: " + mesh.vertices.Length / 1000 + "k");
+
+
+        //Testing is mesh is recreatable in unity:
+        // FOR MAKING SUBMODEL LOCALLY
+        /*
+        GameObject localGenModel = new GameObject();
+        Mesh localGenMesh = new Mesh
+        {
+            //tangents = tangents,
+            vertices = vertices,
+            normals = normals,
+            uv = uv,
+            uv2 = mesh.uv2,
+            uv3 = mesh.uv3,
+            uv4 = mesh.uv4,
+            triangles = triangles,
+            bounds = mesh.bounds,
+            
+        };
+
+        
+        if (mesh.vertices.Length > 65000)
+        {
+            StartCoroutine("CreateSubModel", localGenMesh);
+        }
+
+        //iterate triangles. At each triangle grab the vert, normal, uv at that index. Continue until length of the 3 = 65000.
+        List<Vector3> subMeshVerts = new List<Vector3>();
+        List<Vector3> subMeshNormals = new List<Vector3>();
+        for (int i=0; subMeshVerts.Count < 65000; i++)
+        {
+            int index = localGenMesh.triangles[i];
+            subMeshVerts.Add(localGenMesh.vertices[index]);
+            subMeshNormals.Add(localGenMesh.normals[index]);
+        }
+        int[] subMeshTriangles = localGenMesh.triangles.Take(65000).ToArray();
+
+        //Create submesh
+        Mesh subMesh = new Mesh
+        {
+            vertices = subMeshVerts.ToArray(),
+            normals = subMeshNormals.ToArray(),
+            triangles = subMeshTriangles,
+        };
+
+        //Generate Game obj, add filter, renderer, assign mesh to filter and renderer
+        GameObject subModel = new GameObject
+        {
+            name = "submodel",
+        };
+        subModel.AddComponent<MeshFilter>();
+        subModel.GetComponent<MeshFilter>().mesh = subMesh;
+        MeshRenderer subRend = subModel.AddComponent<MeshRenderer>();
+        Material subMat = subRend.material = new Material(Shader.Find("Standard"));
+        subMat.name = "submodelMaterial";
+        */
+
+
+        /*
+        localGenMesh.RecalculateBounds();
+        localGenMesh.RecalculateNormals();
+        localGenMesh.RecalculateTangents();
+
+        localGenModel.AddComponent<MeshFilter>();
+        localGenModel.GetComponent<MeshFilter>().mesh = localGenMesh;
+
+        MeshRenderer localGenModelRenderer = localGenModel.AddComponent<MeshRenderer>();
+        Material genMaterial = localGenModelRenderer.material = new Material(Shader.Find("Standard"));
+        genMaterial.name = "GeneratedMaterial";
+        */
+
+
+
         Debug.Log("tangents length in as floats before sending" + tangents.Length * 4);
 
         Debug.Log("model firsts - lasts:");
@@ -49,7 +131,7 @@ public class ThreadNet : MonoBehaviour {
         Debug.Log("vertex:" + vertices[0] + vertices[vertices.Length-1]);
         Debug.Log("normal:" + normals[0] + normals[normals.Length -1]);
         Debug.Log("uv:" + uv[0] + uv[uv.Length -1]);
-        Debug.Log("triangle:" + triangles[0] + triangles[triangles.Length -1]);
+        Debug.Log("triangle:" + triangles[triangles.Length -1]);
 
         //get tangets normals and bounds as well.
 
@@ -61,6 +143,39 @@ public class ThreadNet : MonoBehaviour {
         Thread listenerThread = new Thread(Listener);
         listenerThread.IsBackground = true;
         listenerThread.Start();
+    }
+
+    void CreateSubModel(Mesh localGenMesh)
+    {
+        List<Vector3> subMeshVerts = new List<Vector3>();
+        List<Vector3> subMeshNormals = new List<Vector3>();
+        for (int i = 0; subMeshVerts.Count < 65000; i++)
+        {
+            int index = localGenMesh.triangles[i];
+            subMeshVerts.Add(localGenMesh.vertices[index]);
+            subMeshNormals.Add(localGenMesh.normals[index]);
+            Debug.Log("added to submodel lists");
+        }
+        int[] subMeshTriangles = localGenMesh.triangles.Take(65000).ToArray();
+
+        //Create submesh
+        Mesh subMesh = new Mesh
+        {
+            vertices = subMeshVerts.ToArray(),
+            normals = subMeshNormals.ToArray(),
+            triangles = subMeshTriangles,
+        };
+
+        //Generate Game obj, add filter, renderer, assign mesh to filter and renderer
+        GameObject subModel = new GameObject
+        {
+            name = "submodel",
+        };
+        subModel.AddComponent<MeshFilter>();
+        subModel.GetComponent<MeshFilter>().mesh = subMesh;
+        MeshRenderer subRend = subModel.AddComponent<MeshRenderer>();
+        Material subMat = subRend.material = new Material(Shader.Find("Standard"));
+        subMat.name = "submodelMaterial";
     }
 
     /// <summary>
@@ -117,7 +232,6 @@ public class ThreadNet : MonoBehaviour {
         bf.Serialize(ms, wd2);
         byte[] data = ms.ToArray();
 
-        Debug.Log("hello");
         Thread senderThread = new Thread(() => SenderThreaded(data));
         senderThread.IsBackground = true;
         senderThread.Start();
@@ -217,7 +331,7 @@ public class ThreadNet : MonoBehaviour {
         List<Vector4> vecTangents = new List<Vector4>();
         for (int i = 0; i < tangents.Length; i += 4)
         {
-            Vector4 tangent = new Vector4(tangents[i], tangents[i + 1], tangents[i + 2], tangents[i + 3]);
+            Vector4 tangent = new Vector4(tangents[i + 1], tangents[i + 2], tangents[i + 3], tangents[i]);
             vecTangents.Add(tangent);
         }
 
@@ -266,6 +380,32 @@ public class ThreadNet : MonoBehaviour {
         Debug.Log("triangles " + intTrianglesArray[intTrianglesArray.Length-1]);
 
         MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray, vecNormalArray, vecTangentArray);
+
+        //test: make submesh if mesh too big then generate that instead
+        
+        if (meshData.vertices.Length > 65000) {
+
+            List<Vector3> verticesList = new List<Vector3>();
+            List<Vector3> normalsList = new List<Vector3>();
+            for (int i =0; verticesList.Count < 6000; i++)
+            {
+                //verticesList.Add(meshData.vertices[meshData.triangles[i]]);
+                //normalsList.Add(meshData.normals[meshData.triangles[i]]);
+                Debug.Log(meshData.triangles[i]);
+            }
+
+            int[] subTriangles = meshData.triangles.Take(6000).ToArray();
+
+            //re-assign meshData as a different one:
+            meshData = new MeshData
+            {
+                vertices = verticesList.ToArray(),
+                normals = normalsList.ToArray(),
+                triangles = subTriangles,
+            };
+            Debug.Log("Submodel verts: " + meshData.vertices.Length);
+        }
+
         return meshData;
     }
 
@@ -279,9 +419,9 @@ public class ThreadNet : MonoBehaviour {
         Mesh genMesh = new Mesh
         {
             vertices = meshData.vertices,
-            uv = meshData.uv,
+            //uv = meshData.uv,
             triangles = meshData.triangles,
-            tangents = meshData.tangents,
+            //tangents = meshData.tangents,
             normals = meshData.normals,
         };
 
