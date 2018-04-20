@@ -465,7 +465,7 @@ public class ThreadNet : MonoBehaviour {
         return meshData;
     }
 
-    void GenerateModel(MeshData meshData)
+    GameObject GenerateModel(MeshData meshData)
     {
         GameObject genModel = new GameObject
         {
@@ -492,23 +492,33 @@ public class ThreadNet : MonoBehaviour {
         genMaterial.name = "GeneratedMaterial";
 
         isGenerated = true;
+
+        return genModel;
     }
 
     private void Update()
     {
         if (meshData.triangles != null && isGenerated == false)
         {
-            GenerateModel(meshData);
+            //GenerateModel(meshData);
         }
         Debug.Log("UPDATE: submesh data count: " + subMeshDatasArray.Length);
 
         if (generatedSubModels == false && subMeshDatas != null)
         {
+            GameObject parentModel = new GameObject
+            {
+                name = "rootModel",
+            };
+
             foreach (MeshData subMesh in subMeshDatasArray)
             {
-                GenerateModel(subMesh);
+                GameObject subModel = GenerateModel(subMesh);
+                subModel.transform.parent = parentModel.transform;
             }
             generatedSubModels = true;
+
+
         }
     }
 
