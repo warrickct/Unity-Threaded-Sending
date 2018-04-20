@@ -40,6 +40,8 @@ public class ThreadNet : MonoBehaviour {
     //made to prevent the repeat calls to generate the model.
     bool isGenerated = false;
 
+    bool generatedSubModels = false;
+
     // Use this for initialization
     void Start () {
 
@@ -123,7 +125,7 @@ public class ThreadNet : MonoBehaviour {
         */
 
 
-
+        /*
         Debug.Log("tangents length in as floats before sending" + tangents.Length * 4);
 
         Debug.Log("model firsts - lasts:");
@@ -132,6 +134,7 @@ public class ThreadNet : MonoBehaviour {
         Debug.Log("normal:" + normals[0] + normals[normals.Length -1]);
         Debug.Log("uv:" + uv[0] + uv[uv.Length -1]);
         Debug.Log("triangle:" + triangles[triangles.Length -1]);
+        */
 
         //get tangets normals and bounds as well.
 
@@ -320,6 +323,9 @@ public class ThreadNet : MonoBehaviour {
         meshData = ReconstructMeshArrays(wd);
     }
 
+    List<MeshData> subMeshDatas = new List<MeshData>();
+    MeshData[] subMeshDatasArray;
+
     MeshData ReconstructMeshArrays(WireData2 wd2)
     {
         isConstructing = true;
@@ -372,32 +378,73 @@ public class ThreadNet : MonoBehaviour {
 
         //cast to meshdata object for easier return.
 
+        /*
         Debug.Log("Generated meshdata firsts + lasts");
         Debug.Log("tangent" + vecTangentArray[vecTangentArray.Length -1]);
         Debug.Log("verts" + vecVertArray[vecVertArray.Length -1]);
         Debug.Log("normals" + vecNormalArray[vecNormalArray.Length -1]);
         Debug.Log("uvs" + vecUvsArray[vecUvsArray.Length -1]);
         Debug.Log("triangles " + intTrianglesArray[intTrianglesArray.Length-1]);
+        */
 
         MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray, vecNormalArray, vecTangentArray);
 
         //test: make submesh if mesh too big then generate that instead
+        const int VL = 60000;
         
-        if (meshData.vertices.Length > 65000) {
-
-            //find out how many submeshes
-            int loops = 0;
-            for (int j = meshData.vertices.Length; j < 60000; j /= 3)
-            {
-                loops++;
-            }
-
-            Debug.Log("need to do loops: " + loops);
+        if (meshData.vertices.Length > VL) {
 
             List<Vector3> verticesList = new List<Vector3>();
             List<Vector3> normalsList = new List<Vector3>();
             List<int> trianglesList = new List<int>();
-            for (int i =0; verticesList.Count < 60000; i++)
+
+            int triValue = 0;
+
+            for (int j =0; j < meshData.triangles.Length; j++ )
+            {
+                verticesList.Add(meshData.vertices[meshData.triangles[j]]);
+                normalsList.Add(meshData.normals[meshData.triangles[j]]);
+                trianglesList.Add(triValue);
+                triValue++;
+
+                if (verticesList.Count == VL)
+                {
+                    triValue = 0;
+                    //make mesh from list
+                    MeshData subMd = new MeshData
+                    {
+                        vertices = verticesList.ToArray(),
+                        normals = normalsList.ToArray(),
+                        triangles = trianglesList.ToArray(),
+                    };
+
+                    //push to meshdata array
+                    subMeshDatas.Add(subMd);
+                    //test for correct
+                    Debug.Log("made submesh with vert length: " + subMd.vertices.Length);
+                    //clear list
+                    verticesList.Clear();
+                    normalsList.Clear();
+                    trianglesList.Clear();
+                }
+            }
+            MeshData final = new MeshData
+            {
+                vertices = verticesList.ToArray(),
+                normals = normalsList.ToArray(),
+                triangles = trianglesList.ToArray(),
+            };
+            Debug.Log(final.vertices.Length);
+            subMeshDatas.Add(final);
+            subMeshDatasArray = subMeshDatas.ToArray();
+
+            return subMeshDatas[1];
+
+            /*
+            List<Vector3> verticesList = new List<Vector3>();
+            List<Vector3> normalsList = new List<Vector3>();
+            List<int> trianglesList = new List<int>();
+            for (int i =0; verticesList.Count < VL; i++)
             {
                 verticesList.Add(meshData.vertices[meshData.triangles[i]]);
                 normalsList.Add(meshData.normals[meshData.triangles[i]]);
@@ -412,6 +459,7 @@ public class ThreadNet : MonoBehaviour {
                 triangles = trianglesList.ToArray(),
             };
             Debug.Log("Submodel verts: " + meshData.vertices.Length);
+            */
         }
 
         return meshData;
@@ -451,6 +499,16 @@ public class ThreadNet : MonoBehaviour {
         if (meshData.triangles != null && isGenerated == false)
         {
             GenerateModel(meshData);
+        }
+        Debug.Log("UPDATE: submesh data count: " + subMeshDatasArray.Length);
+
+        if (generatedSubModels == false && subMeshDatas != null)
+        {
+            foreach (MeshData subMesh in subMeshDatasArray)
+            {
+                GenerateModel(subMesh);
+            }
+            generatedSubModels = true;
         }
     }
 
