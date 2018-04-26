@@ -675,6 +675,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   model: {fileID: 1085351969}
+  sending: 0
+  receiving: 1
+  receiveIp: 127.0.0.1
+  receivePort: 12005
+  sendIp: 127.0.0.1
+  sendPort: 12001
 --- !u!1 &2004549026
 GameObject:
   m_ObjectHideFlags: 0

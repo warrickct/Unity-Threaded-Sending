@@ -42,6 +42,17 @@ public class ThreadNet : MonoBehaviour {
 
     bool generatedSubModels = false;
 
+
+    //Testing across 2 clients.
+    public bool sending;
+    public bool receiving;
+
+    public string receiveIp;
+    public int receivePort;
+
+    public string sendIp;
+    public int sendPort;
+
     // Use this for initialization
     void Start () {
 
@@ -248,7 +259,13 @@ public class ThreadNet : MonoBehaviour {
     /// <param name="data"></param>
     void SenderThreaded(byte[] data)
     {
-        IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 12001);
+        //for debugging
+        if (!sending)
+        {
+            return;
+        }
+
+        IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse(sendIp), sendPort);
 
         Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         Debug.Log("client set up");
@@ -276,7 +293,13 @@ public class ThreadNet : MonoBehaviour {
 
     void Listener()
     {
-        IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 12001);
+        //for debugging.
+        if (!receiving)
+        {
+            return;
+        }
+
+        IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse(receiveIp), receivePort);
         TcpListener tcpListener = new TcpListener(ipEndPoint);
 
         tcpListener.Start();
@@ -314,6 +337,11 @@ public class ThreadNet : MonoBehaviour {
         }
     }
 
+
+    //make public for testing
+    List<MeshData> subMeshDatas = new List<MeshData>();
+    MeshData[] subMeshDatasArray;
+
     /// <summary>
     /// Parent function for running wiredata handling and conversion into model.
     /// </summary>
@@ -323,8 +351,7 @@ public class ThreadNet : MonoBehaviour {
         meshData = ReconstructMeshArrays(wd);
     }
 
-    List<MeshData> subMeshDatas = new List<MeshData>();
-    MeshData[] subMeshDatasArray;
+    
 
     MeshData ReconstructMeshArrays(WireData2 wd2)
     {
