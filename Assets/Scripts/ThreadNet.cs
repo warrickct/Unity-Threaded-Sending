@@ -42,7 +42,6 @@ public class ThreadNet : MonoBehaviour {
 
     bool generatedSubModels = false;
 
-
     //Testing across 2 clients.
     public bool sending;
     public bool receiving;
@@ -159,6 +158,10 @@ public class ThreadNet : MonoBehaviour {
         listenerThread.Start();
     }
 
+    /// <summary>
+    /// Function for testing if models were being generated correctly without networking
+    /// </summary>
+    /// <param name="localGenMesh"></param>
     void CreateSubModel(Mesh localGenMesh)
     {
         List<Vector3> subMeshVerts = new List<Vector3>();
@@ -291,13 +294,14 @@ public class ThreadNet : MonoBehaviour {
         client.Close();
     }
 
+    /// <summary>
+    /// Receives data stream from specified endpoint. Sends the complete stream data to handling function.
+    /// </summary>
     void Listener()
     {
         //for debugging.
         if (!receiving)
-        {
             return;
-        }
 
         IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse(receiveIp), receivePort);
         TcpListener tcpListener = new TcpListener(ipEndPoint);
@@ -338,7 +342,8 @@ public class ThreadNet : MonoBehaviour {
     }
 
 
-    //make public for testing
+    //Public for receiving and sending
+    //? Not sure if necessary for them to be outside HandleWireData.
     List<MeshData> subMeshDatas = new List<MeshData>();
     MeshData[] subMeshDatasArray;
 
@@ -352,9 +357,15 @@ public class ThreadNet : MonoBehaviour {
     }
 
     
-
+    /// <summary>
+    /// Deserializes wiredata and converts 
+    /// into appropriate types to create a MeshData
+    /// </summary>
+    /// <param name="wd2"></param>
+    /// <returns></returns>
     MeshData ReconstructMeshArrays(WireData2 wd2)
     {
+        // For threading control. To prevent constructing of a mesh when one is already being constructed.
         isConstructing = true;
 
         Debug.Log("received tangets length" + wd2.tangents.Length);
@@ -403,8 +414,8 @@ public class ThreadNet : MonoBehaviour {
         Vector2[] vecUvsArray = vectorUvs.ToArray();
         int[] intTrianglesArray = wd2.triangles;
 
-        //cast to meshdata object for easier return.
 
+        // Simple test to check received data is not uncorrupted.
         /*
         Debug.Log("Generated meshdata firsts + lasts");
         Debug.Log("tangent" + vecTangentArray[vecTangentArray.Length -1]);
@@ -414,12 +425,16 @@ public class ThreadNet : MonoBehaviour {
         Debug.Log("triangles " + intTrianglesArray[intTrianglesArray.Length-1]);
         */
 
+        //cast to meshdata object for easier return object.
         MeshData meshData = new MeshData(intTrianglesArray, vecUvsArray, vecVertArray, vecNormalArray, vecTangentArray);
 
         //test: make submesh if mesh too big then generate that instead
-        const int VL = 60000;
+
+        // Unity's vertices limit is around 65k vertices. 
+        const int VerticesLimit = 60000;
         
-        if (meshData.vertices.Length > VL) {
+        // Create segment mesh into child meshes for child models when a model mesh is over unity's limit.
+        if (meshData.vertices.Length > VerticesLimit) {
 
             List<Vector3> verticesList = new List<Vector3>();
             List<Vector3> normalsList = new List<Vector3>();
@@ -434,7 +449,7 @@ public class ThreadNet : MonoBehaviour {
                 trianglesList.Add(triValue);
                 triValue++;
 
-                if (verticesList.Count == VL)
+                if (verticesList.Count == VerticesLimit)
                 {
                     triValue = 0;
                     //make mesh from list
@@ -445,16 +460,19 @@ public class ThreadNet : MonoBehaviour {
                         triangles = trianglesList.ToArray(),
                     };
 
-                    //push to meshdata array
+                    // Add newly created child mesh to list of childmeshes.
                     subMeshDatas.Add(subMd);
-                    //test for correct
+
+                    // Check the segmentations for each child mesh are correct and under the limit.
                     Debug.Log("made submesh with vert length: " + subMd.vertices.Length);
-                    //clear list
+
+                    //Clear the list for the next child mesh.
                     verticesList.Clear();
                     normalsList.Clear();
                     trianglesList.Clear();
                 }
             }
+            // Final case for creating mesh less than unity's vertices limit.
             MeshData final = new MeshData
             {
                 vertices = verticesList.ToArray(),
@@ -466,32 +484,16 @@ public class ThreadNet : MonoBehaviour {
             subMeshDatasArray = subMeshDatas.ToArray();
 
             return subMeshDatas[1];
-
-            /*
-            List<Vector3> verticesList = new List<Vector3>();
-            List<Vector3> normalsList = new List<Vector3>();
-            List<int> trianglesList = new List<int>();
-            for (int i =0; verticesList.Count < VL; i++)
-            {
-                verticesList.Add(meshData.vertices[meshData.triangles[i]]);
-                normalsList.Add(meshData.normals[meshData.triangles[i]]);
-                trianglesList.Add(i);
-            }
-
-            //re-assign meshData as a different one:
-            meshData = new MeshData
-            {
-                vertices = verticesList.ToArray(),
-                normals = normalsList.ToArray(),
-                triangles = trianglesList.ToArray(),
-            };
-            Debug.Log("Submodel verts: " + meshData.vertices.Length);
-            */
         }
 
         return meshData;
     }
 
+    /// <summary>
+    /// Creates a game object then creates a mesh from a MeshData and adds it to the game object.
+    /// </summary>
+    /// <param name="meshData"></param>
+    /// <returns></returns>
     GameObject GenerateModel(MeshData meshData)
     {
         GameObject genModel = new GameObject
@@ -499,6 +501,7 @@ public class ThreadNet : MonoBehaviour {
             name = "GeneratedModel"
         };
 
+        //todo: Add additional mesh properties to the meshData class. 
         Mesh genMesh = new Mesh
         {
             vertices = meshData.vertices,
@@ -518,15 +521,23 @@ public class ThreadNet : MonoBehaviour {
         Material genMaterial = generatedRenderer.material = new Material(Shader.Find("Standard"));
         genMaterial.name = "GeneratedMaterial";
 
+        // Works as a switch to stop the same model being generated repeatedly.
         isGenerated = true;
 
         return genModel;
     }
 
+    /// <summary>
+    /// Currently used as the flow control for the threads
+    /// and calling non-threadsafe Unity api.
+    /// </summary>
     private void Update()
     {
         if (meshData.triangles != null && isGenerated == false)
         {
+            // todo: prevent from running both singular and segmented generation loops. 
+
+            //! Commented out singular model generation temporarily but possibly not necessary anymore as multiple generation handles all cases.
             //GenerateModel(meshData);
         }
         Debug.Log("UPDATE: submesh data count: " + subMeshDatasArray.Length);
@@ -544,15 +555,17 @@ public class ThreadNet : MonoBehaviour {
                 subModel.transform.parent = parentModel.transform;
             }
             generatedSubModels = true;
-
-
         }
     }
-
 }
 
+/// <summary>
+/// Convenience class for returning multiple mesh data properties in one return.
+/// </summary>
 public struct MeshData
 {
+    //todo: Change name once properties start to include non-mesh properties. Maybe "ModelData".
+
     public Vector4[] tangents;
     public Vector3[] vertices;
     public Vector3[] normals;
@@ -572,6 +585,9 @@ public struct MeshData
 [Serializable]
 public class WireData2
 {
+    //todo: Rename this class and make it the default wiredata class.
+    //todo: Add more sendable information to this class.
+
     [SerializeField]
     public float[] tangents, verts, normals, uvs;
 

@@ -675,7 +675,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   model: {fileID: 1085351969}
-  sending: 0
+  sending: 1
   receiving: 1
   receiveIp: 127.0.0.1
   receivePort: 12005
