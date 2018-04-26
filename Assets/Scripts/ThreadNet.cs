@@ -62,82 +62,11 @@ public class ThreadNet : MonoBehaviour {
         Vector2[] uv = mesh.uv;
         int[] triangles = mesh.triangles;
 
-        Debug.Log("number of verts for model: " + mesh.vertices.Length / 1000 + "k");
+        Debug.Log("number of verts for local model: " + mesh.vertices.Length / 1000 + "k");
 
-
-        //Testing is mesh is recreatable in unity:
-        // FOR MAKING SUBMODEL LOCALLY
-        /*
-        GameObject localGenModel = new GameObject();
-        Mesh localGenMesh = new Mesh
-        {
-            //tangents = tangents,
-            vertices = vertices,
-            normals = normals,
-            uv = uv,
-            uv2 = mesh.uv2,
-            uv3 = mesh.uv3,
-            uv4 = mesh.uv4,
-            triangles = triangles,
-            bounds = mesh.bounds,
-            
-        };
-
-        
-        if (mesh.vertices.Length > 65000)
-        {
-            StartCoroutine("CreateSubModel", localGenMesh);
-        }
-
-        //iterate triangles. At each triangle grab the vert, normal, uv at that index. Continue until length of the 3 = 65000.
-        List<Vector3> subMeshVerts = new List<Vector3>();
-        List<Vector3> subMeshNormals = new List<Vector3>();
-        for (int i=0; subMeshVerts.Count < 65000; i++)
-        {
-            int index = localGenMesh.triangles[i];
-            subMeshVerts.Add(localGenMesh.vertices[index]);
-            subMeshNormals.Add(localGenMesh.normals[index]);
-        }
-        int[] subMeshTriangles = localGenMesh.triangles.Take(65000).ToArray();
-
-        //Create submesh
-        Mesh subMesh = new Mesh
-        {
-            vertices = subMeshVerts.ToArray(),
-            normals = subMeshNormals.ToArray(),
-            triangles = subMeshTriangles,
-        };
-
-        //Generate Game obj, add filter, renderer, assign mesh to filter and renderer
-        GameObject subModel = new GameObject
-        {
-            name = "submodel",
-        };
-        subModel.AddComponent<MeshFilter>();
-        subModel.GetComponent<MeshFilter>().mesh = subMesh;
-        MeshRenderer subRend = subModel.AddComponent<MeshRenderer>();
-        Material subMat = subRend.material = new Material(Shader.Find("Standard"));
-        subMat.name = "submodelMaterial";
-        */
-
-
-        /*
-        localGenMesh.RecalculateBounds();
-        localGenMesh.RecalculateNormals();
-        localGenMesh.RecalculateTangents();
-
-        localGenModel.AddComponent<MeshFilter>();
-        localGenModel.GetComponent<MeshFilter>().mesh = localGenMesh;
-
-        MeshRenderer localGenModelRenderer = localGenModel.AddComponent<MeshRenderer>();
-        Material genMaterial = localGenModelRenderer.material = new Material(Shader.Find("Standard"));
-        genMaterial.name = "GeneratedMaterial";
-        */
-
-
+        // Pre-send check of vertices to checking corruption from sending.
         /*
         Debug.Log("tangents length in as floats before sending" + tangents.Length * 4);
-
         Debug.Log("model firsts - lasts:");
         Debug.Log("tangent:" + tangents[0] + tangents[tangents.Length-1]);
         Debug.Log("vertex:" + vertices[0] + vertices[vertices.Length-1]);
@@ -158,42 +87,6 @@ public class ThreadNet : MonoBehaviour {
         listenerThread.Start();
     }
 
-    /// <summary>
-    /// Function for testing if models were being generated correctly without networking
-    /// </summary>
-    /// <param name="localGenMesh"></param>
-    void CreateSubModel(Mesh localGenMesh)
-    {
-        List<Vector3> subMeshVerts = new List<Vector3>();
-        List<Vector3> subMeshNormals = new List<Vector3>();
-        for (int i = 0; subMeshVerts.Count < 65000; i++)
-        {
-            int index = localGenMesh.triangles[i];
-            subMeshVerts.Add(localGenMesh.vertices[index]);
-            subMeshNormals.Add(localGenMesh.normals[index]);
-            Debug.Log("added to submodel lists");
-        }
-        int[] subMeshTriangles = localGenMesh.triangles.Take(65000).ToArray();
-
-        //Create submesh
-        Mesh subMesh = new Mesh
-        {
-            vertices = subMeshVerts.ToArray(),
-            normals = subMeshNormals.ToArray(),
-            triangles = subMeshTriangles,
-        };
-
-        //Generate Game obj, add filter, renderer, assign mesh to filter and renderer
-        GameObject subModel = new GameObject
-        {
-            name = "submodel",
-        };
-        subModel.AddComponent<MeshFilter>();
-        subModel.GetComponent<MeshFilter>().mesh = subMesh;
-        MeshRenderer subRend = subModel.AddComponent<MeshRenderer>();
-        Material subMat = subRend.material = new Material(Shader.Find("Standard"));
-        subMat.name = "submodelMaterial";
-    }
 
     /// <summary>
     /// Extracts model vert, uv, triangle. Converts them into float arrays, constructs into serializable class, serializes into byte array.
@@ -262,7 +155,7 @@ public class ThreadNet : MonoBehaviour {
     /// <param name="data"></param>
     void SenderThreaded(byte[] data)
     {
-        //for debugging
+        //for debugging when testing one client as a sender and the other as receiver.
         if (!sending)
         {
             return;
@@ -275,16 +168,6 @@ public class ThreadNet : MonoBehaviour {
 
         client.Connect(ipEndPoint);
         Debug.Log("connected");
-
-        /**
-         * This is the test string sent over network.
-        client.SendFile("test.txt");
-        Debug.Log("Sent");
-        client.Shutdown(SocketShutdown.Send);
-        
-        string message = "sending this message";
-        byte[] messageBytes = Encoding.ASCII.GetBytes(message);
-        */
 
         int dataLength = data.Length;
         byte[] sizeData = BitConverter.GetBytes(dataLength);
