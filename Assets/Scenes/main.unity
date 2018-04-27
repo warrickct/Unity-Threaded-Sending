@@ -678,7 +678,7 @@ MonoBehaviour:
   sending: 1
   receiving: 1
   receiveIp: 127.0.0.1
-  receivePort: 12005
+  receivePort: 12001
   sendIp: 127.0.0.1
   sendPort: 12001
 --- !u!1 &2004549026
